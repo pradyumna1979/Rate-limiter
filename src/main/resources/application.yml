@@ -1,0 +1,10 @@
+spring:
+  application:
+    name: RATE-LIMITER
+rate:
+  limiter:
+    request-limit: ${REQUEST-LIMIT:40}
+    time-window-min : ${TIME-WINDOW-MIN:1}
+logging:
+  level:
+    web: DEBUG

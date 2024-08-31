@@ -1,10 +1,10 @@
 package nile.org.in.model;
 
-public class Request {
+public class RateLimiterRequest {
     private final String requestId;
     private final long startTime;
 
-    public Request(String requestId, long startTime) {
+    public RateLimiterRequest(String requestId, long startTime) {
         this.requestId = requestId;
         this.startTime = startTime;
     }
@@ -21,7 +21,7 @@ public class Request {
     public boolean equals(Object o) {
         if (this == o) return true;
         if (o == null || getClass() != o.getClass()) return false;
-        return requestId.equals(((Request) o).requestId);
+        return requestId.equals(((RateLimiterRequest) o).requestId);
     }
 
     @Override

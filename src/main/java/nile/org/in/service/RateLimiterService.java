@@ -3,22 +3,21 @@ package nile.org.in.service;
 import jakarta.annotation.PostConstruct;
 import nile.org.in.component.Timer;
 import nile.org.in.exceptions.RateLimitExceededException;
-import nile.org.in.model.Request;
+import nile.org.in.model.RateLimiterRequest;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
-import java.time.Duration;
 import java.util.Map;
 import java.util.concurrent.*;
 @Service
-public class TimerWheelService {
+public class RateLimiterService {
     @Value("${rate.limiter.request-limit}")
     private  int timeOutPeriod;
     @Value("${rate.limiter.capacity-per-slot}")
     private  int capacityPerSlot;
     private final static TimeUnit timeUnit = TimeUnit.SECONDS;
-    private  ArrayBlockingQueue<Request>[] slots;
+    private  ArrayBlockingQueue<RateLimiterRequest>[] slots;
     private  Map<String, Integer> reverseIndex;
     @Autowired
     private  Timer timer;
@@ -45,30 +44,30 @@ public class TimerWheelService {
     public Future<?> flushRequests() {
         final int currentSlot = getCurrentSlot();
         return threads[currentSlot].submit(() -> {
-            for (final Request request : slots[currentSlot]) {
-                if (timer.getCurrentTime(timeUnit) - request.getStartTime() >= timeOutPeriod) {
-                    slots[currentSlot].remove(request);
-                    reverseIndex.remove(request.getRequestId());
+            for (final RateLimiterRequest rateLimiterRequest : slots[currentSlot]) {
+                if (timer.getCurrentTime(timeUnit) - rateLimiterRequest.getStartTime() >= timeOutPeriod) {
+                    slots[currentSlot].remove(rateLimiterRequest);
+                    reverseIndex.remove(rateLimiterRequest.getRequestId());
                 }
             }
         });
     }
 
-    public Future<?> addRequest(final Request request) throws RateLimitExceededException{
+    public Future<?> addRequest(final RateLimiterRequest rateLimiterRequest) throws RateLimitExceededException{
         final int currentSlot = getCurrentSlot();
         return threads[currentSlot].submit(() -> {
             if (slots[currentSlot].size() >= capacityPerSlot) {
                 throw new RateLimitExceededException();
             }
-            slots[currentSlot].add(request);
-            reverseIndex.put(request.getRequestId(), currentSlot);
+            slots[currentSlot].add(rateLimiterRequest);
+            reverseIndex.put(rateLimiterRequest.getRequestId(), currentSlot);
         });
     }
 
     public Future<?> evict(final String requestId) {
         final int currentSlot = reverseIndex.get(requestId);
         return threads[currentSlot].submit(() -> {
-            slots[currentSlot].remove(new Request(requestId, 0));
+            slots[currentSlot].remove(new RateLimiterRequest(requestId, 0));
             reverseIndex.remove(requestId);
         });
     }

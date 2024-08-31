@@ -3,8 +3,9 @@ spring:
     name: RATE-LIMITER
 rate:
   limiter:
-    request-limit: ${REQUEST-LIMIT:40}
-    time-window-min : ${TIME-WINDOW-MIN:1}
+    request-limit: ${REQUEST-LIMIT:3}
+    time-window-min : ${TIME-WINDOW-MIN:3}
+    capacity-per-slot: ${CAPACITY-PER-SLOT:6}
 logging:
   level:
     web: DEBUG

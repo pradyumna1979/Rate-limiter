@@ -4,9 +4,9 @@ step-1
 step-2:
     Run RateLimiterApplication
 step-3
-    Hit the URL localhost://8080 on postman/browser to the request limit 40
+    Hit the URL localhost://8080/ratelimiter/ on postman/browser to the request limit 40
     Response : Request successful
-    At 41 request Or time limit 3 min
+    
     Response:
     {
     "type": "/",
@@ -20,8 +20,10 @@ Step-4
   Default configuration: application.yml
   rate:
   limiter:
-    request-limit: ${REQUEST-LIMIT:40}
-    time-window-min : ${TIME-WINDOW-MIN:3}
-  You can pass REQUEST-LIMIT and TIME-WINDOW-MIN as enviornment Variable
+      request-limit: ${REQUEST-LIMIT:6}
+      time-window-min : ${TIME-WINDOW-MIN:3}
+      capacity-per-slot: ${CAPACITY-PER-SLOT:3}
+    
+  You can pass REQUEST-LIMIT and capacity-per-slot as enviornment Variable
     
     

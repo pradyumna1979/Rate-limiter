@@ -1,23 +1,26 @@
 package nile.org.in.service;
 
 import jakarta.annotation.PostConstruct;
+import lombok.extern.slf4j.Slf4j;
 import nile.org.in.component.Timer;
 import nile.org.in.exceptions.RateLimitExceededException;
-import nile.org.in.model.RateLimiterRequest;
+import nile.org.in.record.Request;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
+import java.util.Arrays;
 import java.util.Map;
 import java.util.concurrent.*;
 @Service
+@Slf4j
 public class RateLimiterService {
     @Value("${rate.limiter.request-limit}")
     private  int timeOutPeriod;
     @Value("${rate.limiter.capacity-per-slot}")
     private  int capacityPerSlot;
     private final static TimeUnit timeUnit = TimeUnit.SECONDS;
-    private  ArrayBlockingQueue<RateLimiterRequest>[] slots;
+    private  ArrayBlockingQueue<Request>[] slots;
     private  Map<String, Integer> reverseIndex;
     @Autowired
     private  Timer timer;
@@ -30,6 +33,7 @@ public class RateLimiterService {
         this.slots = new ArrayBlockingQueue[this.timeOutPeriod];
         this.threads = new ExecutorService[this.timeOutPeriod];
         this.reverseIndex = new ConcurrentHashMap<>();
+        System.out.println(Arrays.toString(slots));
         for (int i = 0; i < slots.length; i++) {
             slots[i] = new ArrayBlockingQueue<>(capacityPerSlot);
             threads[i] = Executors.newSingleThreadExecutor();
@@ -44,30 +48,33 @@ public class RateLimiterService {
     public Future<?> flushRequests() {
         final int currentSlot = getCurrentSlot();
         return threads[currentSlot].submit(() -> {
-            for (final RateLimiterRequest rateLimiterRequest : slots[currentSlot]) {
-                if (timer.getCurrentTime(timeUnit) - rateLimiterRequest.getStartTime() >= timeOutPeriod) {
-                    slots[currentSlot].remove(rateLimiterRequest);
-                    reverseIndex.remove(rateLimiterRequest.getRequestId());
+            for (final Request request : slots[currentSlot]) {
+                if (timer.getCurrentTime(timeUnit) - request.startTime() >= timeOutPeriod) {
+                    log.info("removing request : {} : from slot : {} ",request,currentSlot);
+                    slots[currentSlot].remove(request);
+                    reverseIndex.remove(request.requestId());
                 }
             }
         });
     }
 
-    public Future<?> addRequest(final RateLimiterRequest rateLimiterRequest) throws RateLimitExceededException{
+    public Future<?> addRequest(final Request request){
         final int currentSlot = getCurrentSlot();
+        log.info("currentSlot : {}",currentSlot);
         return threads[currentSlot].submit(() -> {
             if (slots[currentSlot].size() >= capacityPerSlot) {
+                log.info("Size exceeds on currentSlot : {} : throwing exception for requestId : {}",currentSlot,request);
                 throw new RateLimitExceededException();
             }
-            slots[currentSlot].add(rateLimiterRequest);
-            reverseIndex.put(rateLimiterRequest.getRequestId(), currentSlot);
+            slots[currentSlot].add(request);
+            reverseIndex.put(request.requestId(), currentSlot);
         });
     }
 
     public Future<?> evict(final String requestId) {
         final int currentSlot = reverseIndex.get(requestId);
         return threads[currentSlot].submit(() -> {
-            slots[currentSlot].remove(new RateLimiterRequest(requestId, 0));
+            slots[currentSlot].remove(new Request(requestId, 0));
             reverseIndex.remove(requestId);
         });
     }
